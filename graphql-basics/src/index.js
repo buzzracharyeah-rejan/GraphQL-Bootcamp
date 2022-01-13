@@ -2,33 +2,39 @@ import { createServer } from 'graphql-yoga';
 
 const typeDefs = `
 type Query {
-    id: ID
-    name: String! 
-    age: Int
-    employee: Boolean 
-    gpa: Float
+  me: User
+  greeting(name: String, role: String!): String! 
+  
+}
+
+type User {
+  id: ID!
+  name: String! 
+  age: Int!
+  email: String!
+  married: Boolean
 }`;
 
 const resolvers = {
   Query: {
-    id() {
-      return '1';
+    me() {
+      return {
+        id: '123',
+        name: 'rejan',
+        age: 22,
+        email: 'rejandev@gmail.com',
+        married: false,
+      };
     },
-    name() {
-      return 'rejan bajracharay';
-    },
-    age() {
-      return 22;
-    },
-    employee() {
-      return false;
-    },
-    gpa() {
-      return 3.77;
+    greeting(parent, args, ctx, info) {
+      if (args) {
+        return `hello ${args.name}. you\'re the greatest ${args.role} of all time`;
+      }
+
+      return "Hi there. hope you're well";
     },
   },
 };
-
 const server = createServer({ typeDefs, resolvers });
 
 server.start(() => console.log('server started successfully'));
