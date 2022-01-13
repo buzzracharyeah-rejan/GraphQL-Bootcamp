@@ -1,74 +1,28 @@
 import { createServer } from 'graphql-yoga';
-
-const users = [
-  {
-    id: '1',
-    name: 'rejan bajracharay',
-    email: 'rejandev@gmail.com',
-    age: 22,
-    married: false,
-    posts: ['1', '4'],
-  },
-  {
-    id: '2',
-    name: 'sarah',
-    email: 'sarah@example.com',
-    age: 23,
-    married: false,
-    posts: ['2'],
-  },
-  {
-    id: '3',
-    name: 'test',
-    email: 'test@test.com',
-    age: 30,
-    married: true,
-    posts: ['3'],
-  },
-];
-
-const posts = [
-  {
-    id: '1',
-    title: 'test',
-    body: 'some test',
-    author: '3',
-  },
-  {
-    id: '2',
-    title: 'alchemist',
-    body: 'a really good book',
-    author: '2',
-  },
-  {
-    id: '3',
-    title: 'js',
-    body: "life's lessons",
-    author: '1',
-  },
-  {
-    id: '4',
-    title: 'js',
-    body: "life's lessons",
-    author: '1',
-  },
-];
+import { v4 as uuid } from 'uuid';
+import { users, posts, comments } from './constants';
 
 const typeDefs = `
 type Query {
   users(query: String): [User!]!
   posts(query: String): [Post]!
-  me: User
+  comments(query: String): [Comment!]!
+  me: User 
   post: Post!
+}
+
+type Mutation {
+  createUser(name: String!, email: String!, age: Int): User! 
 }
 
 type User {
   id: ID!
   name: String! 
-  age: Int!
+  age: Int
   email: String!
   married: Boolean
   posts: [Post!]!
+  comments: [Comment!]!
 }
 
 type Post {
@@ -76,6 +30,14 @@ type Post {
   title: String! 
   body: String!
   author: User!
+  comments: [Comment!]!
+}
+
+type Comment { 
+  id: ID!
+  text: String!
+  author:User!
+  post: Post!
 }
 `;
 
@@ -93,6 +55,12 @@ const resolvers = {
         return posts;
       }
       return posts.filter((post) => post.title.includes(args.query));
+    },
+    comments(parent, args, ctx, info) {
+      if (!args.query) {
+        return comments;
+      }
+      return comments.filter((comment) => comment.title.includes(args.query));
     },
     me() {
       return {
@@ -112,10 +80,32 @@ const resolvers = {
       };
     },
   },
+  Mutation: {
+    createUser(parent, args, ctx, info) {
+      // check if the email already exists
+      // Array.prototype.some returns true if at least one of the element in the array passes the test
+      const emailTaken = users.some((user) => user.email === args.email);
+
+      if (emailTaken) throw new Error('email already taken');
+
+      const user = {
+        id: uuid(),
+        name: args.name,
+        email: args.email,
+        age: args.age,
+      };
+
+      users.push(user);
+      return user;
+    },
+  },
   Post: {
     author(parent, args, ctx, info) {
       // console.log(parent);
       return users.find((user) => user.id === parent.author);
+    },
+    comments(parent, args, ctx, info) {
+      return comments.filter((comment) => comment.post === parent.id);
     },
   },
   User: {
@@ -127,11 +117,28 @@ const resolvers = {
       // });
       // console.log(newPosts);
       // return newPosts;
-      const arr = parent.posts.reduce((acc, current) => {
+      return parent.posts.reduce((acc, current) => {
         const post = posts.find((post) => post.id === current);
         return acc.concat(post);
       }, []);
-      return arr;
+    },
+    comments(parent, args, ctx, info) {
+      // return parent.comments.reduce((acc, current) => {
+      //   return acc.concat(comments.find((comment) => comment.id === current));
+      // }, []);
+      return comments.filter((comment) => comment.author === parent.id);
+    },
+  },
+  Comment: {
+    author(parent, args, ctx, info) {
+      // const match = users.find((user) => user.id === parent.author);
+      // console.log(match);
+      // return match;
+
+      return users.find((user) => user.id === parent.author);
+    },
+    post(parent, args, ctx, info) {
+      return posts.find((post) => post.id === parent.post);
     },
   },
 };
