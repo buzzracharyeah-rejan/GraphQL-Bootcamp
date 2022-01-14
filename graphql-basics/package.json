@@ -12,6 +12,7 @@
   "license": "ISC",
   "dependencies": {
     "babel-cli": "^6.26.0",
+    "babel-plugin-transform-object-rest-spread": "^6.26.0",
     "babel-preset-env": "^1.7.0",
     "graphql": "^16.2.0",
     "graphql-yoga": "^2.0.0-alpha.7",

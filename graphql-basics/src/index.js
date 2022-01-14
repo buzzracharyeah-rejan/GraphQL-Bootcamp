@@ -1,23 +1,34 @@
 import { createServer } from 'graphql-yoga';
+import { GraphQLServer } from 'graphql-yoga';
 import { v4 as uuid } from 'uuid';
-import { users, posts, comments } from './constants';
+import data from './constants';
 
 const typeDefs = `
 type Query {
   users(query: String): [User!]!
   posts(query: String): [Post]!
   comments(query: String): [Comment!]!
-  me: User 
+  me: User
   post: Post!
 }
 
 type Mutation {
-  createUser(name: String!, email: String!, age: Int): User! 
+  createUser(name: String!, email: String!, age: Int, married: Boolean): User!
+  deleteUser(id: ID!): User!
+  createPost(title: String!, body: String!, author: ID!): Post!
+  createComment(text: String!, author: ID!, post: ID!): Comment!
+}
+
+input createUserInput {
+  name: String!
+  email: String!
+  age: Int
+  married: Boolean
 }
 
 type User {
   id: ID!
-  name: String! 
+  name: String!
   age: Int
   email: String!
   married: Boolean
@@ -27,13 +38,13 @@ type User {
 
 type Post {
   id: ID!
-  title: String! 
+  title: String!
   body: String!
   author: User!
   comments: [Comment!]!
 }
 
-type Comment { 
+type Comment {
   id: ID!
   text: String!
   author:User!
@@ -45,22 +56,24 @@ const resolvers = {
   Query: {
     users(parent, args, ctx, info) {
       if (!args.query) {
-        return users;
+        return data.users;
       }
 
-      return users.filter((user) => user.name.toLowerCase().includes(args.query.toLowerCase()));
+      return data.users.filter((user) =>
+        user.name.toLowerCase().includes(args.query.toLowerCase())
+      );
     },
     posts(parent, args, ctx, info) {
       if (!args.query) {
-        return posts;
+        return data.posts;
       }
-      return posts.filter((post) => post.title.includes(args.query));
+      return data.posts.filter((post) => post.title.includes(args.query));
     },
     comments(parent, args, ctx, info) {
       if (!args.query) {
-        return comments;
+        return data.comments;
       }
-      return comments.filter((comment) => comment.title.includes(args.query));
+      return data.comments.filter((comment) => comment.title.includes(args.query));
     },
     me() {
       return {
@@ -84,64 +97,88 @@ const resolvers = {
     createUser(parent, args, ctx, info) {
       // check if the email already exists
       // Array.prototype.some returns true if at least one of the element in the array passes the test
-      const emailTaken = users.some((user) => user.email === args.email);
+      const emailTaken = data.users.some((user) => user.email === args.email);
 
       if (emailTaken) throw new Error('email already taken');
 
       const user = {
         id: uuid(),
-        name: args.name,
-        email: args.email,
-        age: args.age,
+        ...args,
       };
 
-      users.push(user);
+      data.users.push(user);
       return user;
+    },
+    deleteUser(parent, args, ctx, info) {
+      const userIndex = data.users.findIndex((user) => user.id === args.id);
+
+      if (userIndex === -1) throw new Error('invalid user id');
+
+      const deletedUsers = data.users.splice(userIndex, 1);
+
+      data.posts = data.posts.filter((post) => {
+        const match = post.author === deletedUsers[0].id;
+        data.comments = data.comments.filter((comment) => comment.post !== match.id);
+        return !match;
+      });
+
+      data.comments = data.comments.filter((comment) => comment.author !== deletedUsers[0].id);
+      return deletedUsers[0];
+    },
+    createPost(parent, args, ctx, info) {
+      const { title, body, author } = args;
+
+      if (!data.users.some((user) => user.id === author)) throw new Error('invalid user id');
+
+      const post = {
+        id: uuid(),
+        ...args,
+      };
+      data.posts.push(post);
+      return post;
+    },
+    createComment(parent, args, ctx, info) {
+      if (!data.users.some((user) => user.id === args.author)) throw new Error('invalid user id');
+      if (!data.posts.some((post) => post.id === args.post)) throw new Error('invalid post id');
+
+      const comment = {
+        id: uuid(),
+        ...args,
+      };
+      data.comments.push(comment);
+      return comment;
     },
   },
   Post: {
     author(parent, args, ctx, info) {
-      // console.log(parent);
-      return users.find((user) => user.id === parent.author);
+      console.log(parent);
+      return data.users.find((user) => user.id === parent.author);
     },
     comments(parent, args, ctx, info) {
-      return comments.filter((comment) => comment.post === parent.id);
+      return data.comments.filter((comment) => comment.post === parent.id);
     },
   },
   User: {
     posts(parent, args, ctx, info) {
-      // const newPosts = [];
-      // parent.posts.forEach((id) => {
-      //   const post = posts.find((post) => post.id === id);
-      //   newPosts.push(post);
-      // });
-      // console.log(newPosts);
-      // return newPosts;
-      return parent.posts.reduce((acc, current) => {
-        const post = posts.find((post) => post.id === current);
+      return data.parent.posts.reduce((acc, current) => {
+        const post = data.posts.find((post) => post.id === current);
         return acc.concat(post);
       }, []);
     },
     comments(parent, args, ctx, info) {
-      // return parent.comments.reduce((acc, current) => {
-      //   return acc.concat(comments.find((comment) => comment.id === current));
-      // }, []);
-      return comments.filter((comment) => comment.author === parent.id);
+      return data.comments.filter((comment) => comment.author === parent.id);
     },
   },
   Comment: {
     author(parent, args, ctx, info) {
-      // const match = users.find((user) => user.id === parent.author);
-      // console.log(match);
-      // return match;
-
-      return users.find((user) => user.id === parent.author);
+      return data.users.find((user) => user.id === parent.author);
     },
     post(parent, args, ctx, info) {
-      return posts.find((post) => post.id === parent.post);
+      return data.posts.find((post) => post.id === parent.post);
     },
   },
 };
-const server = createServer({ typeDefs, resolvers });
 
+const server = createServer({ typeDefs, resolvers });
+// const server = new GraphQLServer({ typeDefs, resolvers });
 server.start(() => console.log('server started successfully'));
