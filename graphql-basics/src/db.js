@@ -27,6 +27,7 @@ const posts = [
     title: 'test',
     body: 'some test',
     author: '3',
+    published: true,
   },
   {
     id: '2',

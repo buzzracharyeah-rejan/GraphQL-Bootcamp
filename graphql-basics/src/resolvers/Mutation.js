@@ -1,3 +1,4 @@
+import { PubSub } from 'graphql-yoga';
 import { v4 as uuid } from 'uuid';
 const Mutation = {
   createUser(parent, args, { db }, info) {
@@ -84,16 +85,18 @@ const Mutation = {
     // }
     // return user;
   },
-  createPost(parent, args, { db }, info) {
-    const { title, body, author } = args;
+  createPost(parent, { data }, { db, pubsub }, info) {
+    const { title, body, author, published } = data;
 
     if (!db.users.some((user) => user.id === author)) throw new Error('invalid user id');
 
     const post = {
       id: uuid(),
-      ...args,
+      ...data,
     };
     db.posts.push(post);
+
+    if (post.published) pubsub.publish('post', { post });
     return post;
   },
   deletePost(parent, args, { db }, info) {
@@ -118,23 +121,29 @@ const Mutation = {
 
     return deletedPost[0];
   },
-  createComment(parent, args, { db }, info) {
-    if (!db.users.some((user) => user.id === args.author)) throw new Error('invalid user id');
-    if (!data.posts.some((post) => post.id === args.post)) throw new Error('invalid post id');
+  createComment(parent, args, { db, pubsub }, info) {
+    const userExists = db.users.some((user) => user.id === args.author);
+    const postExists = db.posts.some((post) => post.id === args.post && post.published);
+
+    // if (!userExists) throw new Error('invalid user id');
+    // if (!postExists) throw new Error('invalid post id');
+    if (!userExists || !postExists) throw new Error('unable to find user or post');
 
     const comment = {
       id: uuid(),
       ...args,
     };
-    data.comments.push(comment);
+    db.comments.push(comment);
+    pubsub.publish(`comment ${args.post}`, { comment });
+
     return comment;
   },
   deleteComment(parent, args, { db }, info) {
-    const commentIndex = data.comments.findIndex((comment) => comment.id === args.id);
+    const commentIndex = db.comments.findIndex((comment) => comment.id === args.id);
     if (commentIndex === -1) throw new Error('comment does not exist');
 
-    const deletedComments = data.comments.splice(commentIndex, 1);
-    data.comments = data.comments.filter((comment) => comment.id !== deletedComments[0].id);
+    const deletedComments = db.comments.splice(commentIndex, 1);
+    db.comments = data.comments.filter((comment) => comment.id !== deletedComments[0].id);
     return deletedComments[0];
   },
 };
