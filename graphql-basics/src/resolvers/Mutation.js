@@ -34,6 +34,56 @@ const Mutation = {
     db.comments = db.comments.filter((comment) => comment.author !== deletedUsers[0].id);
     return deletedUsers[0];
   },
+  updateUser(parent, args, { db }, info) {
+    const {
+      id,
+      data: { name, email, age },
+    } = args;
+
+    const user = db.users.find((user) => user.id === id);
+    if (!user) throw new Error('user not found');
+
+    db.users = db.users.filter((user) => {
+      const match = user.id === id;
+
+      if (match) {
+        if (typeof email === 'string') {
+          const emailExists = db.users.some((user) => user.email === email);
+          if (emailExists) throw new Error('email already taken');
+          user.email = email;
+        }
+
+        if (typeof name === 'string') {
+          user.name = name;
+        }
+
+        if (typeof age !== 'undefined') {
+          user.age = age;
+        }
+      }
+      return true;
+    });
+
+    return db.users.find((user) => user.id === id);
+    // const user = db.users.find((user) => user.id === id);
+
+    // if (!user) throw new Error('user not found');
+
+    // if (typeof name === 'string') {
+    //   user.name = name;
+    // }
+
+    // if (typeof email === 'string') {
+    //   const emailExists = db.users.some((user) => user.email === email);
+    //   if (emailExists) throw new Error('email already taken');
+    //   user.email = email;
+    // }
+
+    // if (typeof age !== 'undefined') {
+    //   user.age = age;
+    // }
+    // return user;
+  },
   createPost(parent, args, { db }, info) {
     const { title, body, author } = args;
 
