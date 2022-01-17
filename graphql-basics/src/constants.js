@@ -12,7 +12,6 @@ let data = {
       email: 'rejandev@gmail.com',
       age: 22,
       married: false,
-      posts: ['1', '4'],
     },
     {
       id: '2',
@@ -20,7 +19,6 @@ let data = {
       email: 'sarah@example.com',
       age: 23,
       married: false,
-      posts: ['2'],
     },
     {
       id: '3',
@@ -28,7 +26,6 @@ let data = {
       email: 'test@test.com',
       age: 30,
       married: true,
-      posts: ['3'],
     },
   ],
   posts: [

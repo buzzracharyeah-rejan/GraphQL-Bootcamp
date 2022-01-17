@@ -16,6 +16,7 @@ type Mutation {
   createUser(name: String!, email: String!, age: Int, married: Boolean): User!
   deleteUser(id: ID!): User!
   createPost(title: String!, body: String!, author: ID!): Post!
+  deletePost(id: ID!): Post!
   createComment(text: String!, author: ID!, post: ID!): Comment!
 }
 
@@ -64,6 +65,7 @@ const resolvers = {
       );
     },
     posts(parent, args, ctx, info) {
+      // console.log(data.posts);
       if (!args.query) {
         return data.posts;
       }
@@ -118,7 +120,10 @@ const resolvers = {
 
       data.posts = data.posts.filter((post) => {
         const match = post.author === deletedUsers[0].id;
-        data.comments = data.comments.filter((comment) => comment.post !== match.id);
+        if (match) {
+          data.comments = data.comments.filter((comment) => comment.post !== post.id);
+        }
+        console.log(data.comments);
         return !match;
       });
 
@@ -137,6 +142,28 @@ const resolvers = {
       data.posts.push(post);
       return post;
     },
+    deletePost(parent, args, ctx, info) {
+      // const postExists = data.posts.find((post) => post.id === args.id);
+      // if (!postExists) throw new Error('post does not exist');
+
+      // data.posts = data.posts.filter((post) => {
+      //   const match = post.id === args.id;
+      //   if (match) {
+      //     data.comments = data.comments.filter((comment) => comment.post !== post.id);
+      //   }
+      //   return !match;
+      // });
+
+      // return postExists;
+      const postIndex = data.posts.findIndex((post) => post.id === args.id);
+
+      if (postIndex === -1) throw new Error('post does not exist');
+
+      const deletedPost = data.posts.splice(postIndex, 1);
+      data.comments = data.comments.filter((comment) => comment.post !== deletedPost[0].id);
+
+      return deletedPost[0];
+    },
     createComment(parent, args, ctx, info) {
       if (!data.users.some((user) => user.id === args.author)) throw new Error('invalid user id');
       if (!data.posts.some((post) => post.id === args.post)) throw new Error('invalid post id');
@@ -151,7 +178,7 @@ const resolvers = {
   },
   Post: {
     author(parent, args, ctx, info) {
-      console.log(parent);
+      // console.log(parent);
       return data.users.find((user) => user.id === parent.author);
     },
     comments(parent, args, ctx, info) {
@@ -160,10 +187,7 @@ const resolvers = {
   },
   User: {
     posts(parent, args, ctx, info) {
-      return data.parent.posts.reduce((acc, current) => {
-        const post = data.posts.find((post) => post.id === current);
-        return acc.concat(post);
-      }, []);
+      return data.posts.find((post) => post.author === parent.id);
     },
     comments(parent, args, ctx, info) {
       return data.comments.filter((comment) => comment.author === parent.id);
@@ -179,6 +203,6 @@ const resolvers = {
   },
 };
 
-const server = createServer({ typeDefs, resolvers });
-// const server = new GraphQLServer({ typeDefs, resolvers });
+// const server = createServer({ typeDefs, resolvers });
+const server = new GraphQLServer({ typeDefs, resolvers });
 server.start(() => console.log('server started successfully'));
